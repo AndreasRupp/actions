@@ -1,0 +1,110 @@
+####################################################################################################
+# GitHub action that builds and eventually deploys a doxygen.
+#
+# Note that the inputs that are marked as not required are only required if the doxygen pages will
+# really be deployed. They are obsolete if you only want to check, whether doxygen works.
+#
+# Author: Andreas Rupp, Heidelberg University, 2021.
+####################################################################################################
+
+name: Turn tex code into pdf
+description: "Run latex command and publish result afterwards."
+
+inputs:
+  deploy_pdf:
+    description: |
+      "'True' indicates that the pdf is build AND deployed.
+      PDF is build, but not deployed to the remote repository if set to 'false'."
+    required: true
+    default: true
+  do_bib:
+    required: true
+    default: true
+  tex_command:
+    description: "Shell command to generate pdf from tex files (if you are in the repository)."
+    required: true
+    default: "pdflatex"
+  bib_command:
+    description: "Shell command to generate bibliography from aux files."
+    required: true
+    default: "bibtex"
+  ci_repo_token:
+    description: |
+      "Contains a token that should be stored as a secret within the repository of which the doxygen
+      will be created. This token is also set as personal access token of the ci_user. The ci_user
+      is recommended to be a dummy account with write access to the repository that will contain the
+      doygen pages only. Thus, the personal access token should grant access to the repository that
+      will contain the doxygen pages. This is not needed if 'deploy_pdf' is set to false."
+    required: false
+    default: Debug
+  ci_user_name:
+    description: |
+      "Name of the ci_user, which is recommended to be a dummy account with write access to the
+      repository that will contain the doxygen pages, only."
+    required: false
+  ci_user_mail:
+    description: "Mail of the CI user."
+    required: false
+  pages_repo_organization:
+    description: "Organization that owns the repository that will contain the doxygen."
+    required: false
+  pages_repo_name:
+    description: "Name of the repository containing the doxgen pages (and nothing else)."
+    required: false
+  tex_file:
+    description: |
+      "Name of the main tex file. (Omit .tex extension.)"
+    required: false
+  auxiliary_folder:
+    description: |
+      "Name of a not existing folder in your repositories. The folder will be generated and
+      manipulated by this script."
+    required: true
+    default: pdf_docs_ci
+
+runs:
+  using: composite
+  steps:
+  - name: pdflatex number 1
+    uses: dante-ev/latex-action@latest
+    with:
+      root_file: ${{inputs.tex_file}}.tex
+      compiler: ${{inputs.tex_command}}
+      args: -interaction=nonstopmode -shell-escape
+  - name: bibtex
+    if: ${{inputs.do_bib == 'true'}}
+    uses: dante-ev/latex-action@latest
+    with:
+      root_file: ${{inputs.tex_file}}.aux
+      compiler: ${{inputs.bib_command}}
+  - name: pdflatex number 2
+    if: ${{inputs.do_bib == 'true'}}
+    uses: dante-ev/latex-action@latest
+    with:
+      root_file: ${{inputs.tex_file}}.tex
+      compiler: ${{inputs.tex_command}}
+      args: -interaction=nonstopmode -shell-escape
+  - name: pdflatex number 3
+    if: ${{inputs.do_bib == 'true'}}
+    uses: dante-ev/latex-action@latest
+    with:
+      root_file: ${{inputs.tex_file}}.tex
+      compiler: ${{inputs.tex_command}}
+      args: -interaction=nonstopmode -shell-escape
+  - name: Run Deploy Script
+    shell: bash
+    env:
+      REPO_TOKEN: ${{inputs.ci_repo_token}}
+      GH_REPO_ORG: ${{inputs.pages_repo_organization}}
+      GH_REPO_NAME: ${{inputs.pages_repo_name}}
+      GH_USER_NAME: ${{inputs.ci_user_name}}
+      GH_USER_MAIL: ${{inputs.ci_user_mail}}
+      PDF_FILE: ${{inputs.tex_file}}.pdf
+      GH_AUX_REP: ${{inputs.auxiliary_folder}}
+    run: |
+      if [ ${{inputs.deploy_pdf}} = 'true' ]; then
+        git clone -b tex-to-pdf https://github.com/AndreasRupp/actions.git \
+          ${{inputs.auxiliary_folder}}
+        chmod 700 ${{inputs.auxiliary_folder}}/deploy_pdf.sh
+        ${{inputs.auxiliary_folder}}/deploy_pdf.sh
+      fi
