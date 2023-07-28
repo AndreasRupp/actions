@@ -27,7 +27,7 @@ cd $GH_AUX_REP
 git config --global push.default simple
 
 # Go back to first commit.
-git reset --hard `git rev-list --max-parents=0 --abbrev-commit HEAD`
+git reset `git rev-list --max-parents=0 --abbrev-commit HEAD`
 
 # Create .nojekyll file.
 echo "" > .nojekyll

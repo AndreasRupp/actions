@@ -78,7 +78,6 @@ runs:
       root_file: ${{inputs.tex_file}}.aux
       compiler: ${{inputs.bib_command}}
   - name: pdflatex number 2
-    if: ${{inputs.do_bib == 'true'}}
     uses: dante-ev/latex-action@latest
     with:
       root_file: ${{inputs.tex_file}}.tex
