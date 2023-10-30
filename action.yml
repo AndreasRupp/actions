@@ -69,27 +69,27 @@ runs:
     uses: dante-ev/latex-action@latest
     with:
       root_file: ${{inputs.tex_file}}.tex
-      compiler: ${{inputs.tex_command}}
-      args: -interaction=nonstopmode -shell-escape
-  - name: bibtex
-    if: ${{inputs.do_bib == 'true'}}
-    uses: dante-ev/latex-action@latest
-    with:
-      root_file: ${{inputs.tex_file}}.aux
-      compiler: ${{inputs.bib_command}}
-  - name: pdflatex number 2
-    uses: dante-ev/latex-action@latest
-    with:
-      root_file: ${{inputs.tex_file}}.tex
-      compiler: ${{inputs.tex_command}}
-      args: -interaction=nonstopmode -shell-escape
-  - name: pdflatex number 3
-    if: ${{inputs.do_bib == 'true'}}
-    uses: dante-ev/latex-action@latest
-    with:
-      root_file: ${{inputs.tex_file}}.tex
-      compiler: ${{inputs.tex_command}}
-      args: -interaction=nonstopmode -shell-escape
+  #     compiler: ${{inputs.tex_command}}
+  #     args: -interaction=nonstopmode -shell-escape
+  # - name: bibtex
+  #   if: ${{inputs.do_bib == 'true'}}
+  #   uses: dante-ev/latex-action@latest
+  #   with:
+  #     root_file: ${{inputs.tex_file}}.aux
+  #     compiler: ${{inputs.bib_command}}
+  # - name: pdflatex number 2
+  #   uses: dante-ev/latex-action@latest
+  #   with:
+  #     root_file: ${{inputs.tex_file}}.tex
+  #     compiler: ${{inputs.tex_command}}
+  #     args: -interaction=nonstopmode -shell-escape
+  # - name: pdflatex number 3
+  #   if: ${{inputs.do_bib == 'true'}}
+  #   uses: dante-ev/latex-action@latest
+  #   with:
+  #     root_file: ${{inputs.tex_file}}.tex
+  #     compiler: ${{inputs.tex_command}}
+  #     args: -interaction=nonstopmode -shell-escape
   - name: Run Deploy Script
     shell: bash
     env:
