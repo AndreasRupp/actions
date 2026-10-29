@@ -79,6 +79,7 @@ scheme-basic latexmk
 collection-latexrecommended collection-latexextra
 collection-fontsrecommended collection-mathscience collection-pictures
 collection-bibtexextra biber
+babel-german hyphen-german
 ```
 
 If your document needs further packages, list them in a file, e.g. `.github/tl_packages`,

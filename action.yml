@@ -49,6 +49,7 @@ inputs:
       collection-latexrecommended collection-latexextra
       collection-fontsrecommended collection-mathscience collection-pictures
       collection-bibtexextra biber
+      babel-german hyphen-german
   texlive_package_file:
     description: |
       Optional file (relative to the repository root) listing further TeX Live packages, separated
