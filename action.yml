@@ -35,16 +35,31 @@ inputs:
     required: false
     default: latexmk
   compiler_args:
-    description: "Arguments passed to the compiler."
-    required: false
-    default: -pdf -latexoption=-file-line-error -latexoption=-interaction=nonstopmode
-  free_disk_space:
     description: |
-      'true' removes unused preinstalled software (Android SDK, .NET, GHC, ...) from GitHub-hosted
-      runners before the TeX Live image is built. The full TeX Live image does not fit into the
-      default free disk space otherwise. Has no effect on self-hosted runners.
+      Arguments passed to the compiler, e.g. add -shell-escape, or use -lualatex instead of -pdf.
     required: false
-    default: 'true'
+    default: -pdf -file-line-error -interaction=nonstopmode
+  texlive_packages:
+    description: |
+      TeX Live packages, collections, or schemes to be installed. The installation is cached, so
+      only the first run (or the first run after changing this list) takes some minutes.
+    required: false
+    default: |
+      scheme-basic latexmk
+      collection-latexrecommended collection-latexextra
+      collection-fontsrecommended collection-mathscience collection-pictures
+      collection-bibtexextra biber
+  texlive_package_file:
+    description: |
+      Optional file (relative to the repository root) listing further TeX Live packages, separated
+      by whitespace. Text after '#' is a comment. These are installed in addition to
+      'texlive_packages'.
+    required: false
+    default: ''
+  texlive_version:
+    description: "TeX Live version (year) to be installed. Empty means the latest version."
+    required: false
+    default: ''
   ci_repo_token:
     description: |
       Personal access token of the ci_user. It should be stored as a secret within the repository
@@ -83,22 +98,38 @@ inputs:
 runs:
   using: composite
   steps:
-  - name: Free disk space
-    if: inputs.free_disk_space == 'true' && runner.environment == 'github-hosted'
-    shell: bash
-    run: |
-      df -h /
-      sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
-        /opt/hostedtoolcache/CodeQL /usr/local/share/boost
-      sudo docker image prune --all --force > /dev/null
-      df -h /
-  - name: Compile LaTeX
-    uses: dante-ev/latex-action@2026-C
+  - name: Install TeX Live
+    uses: zauguin/install-texlive@v4
     with:
-      root_file: ${{ inputs.tex_file }}.tex
-      working_directory: ${{ inputs.working_directory }}
-      compiler: ${{ inputs.compiler }}
-      args: ${{ inputs.compiler_args }}
+      packages: ${{ inputs.texlive_packages }}
+      package_file: ${{ inputs.texlive_package_file }}
+      texlive_version: ${{ inputs.texlive_version }}
+  - name: Compile LaTeX
+    shell: bash
+    working-directory: ${{ github.workspace }}/${{ inputs.working_directory }}
+    env:
+      COMPILER: ${{ inputs.compiler }}
+      COMPILER_ARGS: ${{ inputs.compiler_args }}
+      TEX_FILE: ${{ inputs.tex_file }}
+    # COMPILER_ARGS is unquoted on purpose: it has to be split into separate arguments.
+    run: $COMPILER $COMPILER_ARGS "$TEX_FILE.tex"
+  - name: Report missing LaTeX files
+    if: failure()
+    shell: bash
+    working-directory: ${{ github.workspace }}/${{ inputs.working_directory }}
+    env:
+      TEX_FILE: ${{ inputs.tex_file }}
+    run: |
+      log="$(basename "$TEX_FILE").log"
+      [ -f "$log" ] || exit 0
+      { grep -oE "File \`[^']+' not found" "$log" || true; } |
+        sed -E "s/^File \`(.*)' not found$/\1/" | sort -u |
+      while read -r file; do
+        pkg="$(tlmgr search --global --file "/$file" 2>/dev/null | grep -E '^[^[:space:]]+:$' |
+          head -n 1 | tr -d ':' || true)"
+        echo "::error::LaTeX file '$file' is missing. Add the TeX Live package '${pkg:-unknown}'" \
+          "to the input 'texlive_packages' or to the file 'texlive_package_file'."
+      done
   - name: Deploy PDF
     if: inputs.deploy_pdf == 'true'
     shell: bash

@@ -55,21 +55,38 @@ one pages repository (as long as their `tex_file` names differ).
 
 ## Optional inputs
 
-| Input               | Default                                                                 | Meaning |
-|---------------------|-------------------------------------------------------------------------|---------|
-| `working_directory` | repository root                                                         | Directory in which the compiler is run (and the PDF is expected). |
-| `compiler`          | `latexmk`                                                               | LaTeX compiler. `latexmk` runs bibtex/biber and repeats LaTeX runs automatically. |
-| `compiler_args`     | `-pdf -latexoption=-file-line-error -latexoption=-interaction=nonstopmode` | Arguments of the compiler, e.g. use `-lualatex` instead of `-pdf` or add `-shell-escape`. |
-| `free_disk_space`   | `true`                                                                  | Remove unused preinstalled software from GitHub-hosted runners before building. |
+| Input                  | Default                                           | Meaning |
+|------------------------|---------------------------------------------------|---------|
+| `working_directory`    | repository root                                   | Directory in which the compiler is run (and the PDF is expected). |
+| `compiler`             | `latexmk`                                         | LaTeX compiler. `latexmk` runs bibtex/biber and repeats LaTeX runs automatically. |
+| `compiler_args`        | `-pdf -file-line-error -interaction=nonstopmode`  | Arguments of the compiler, e.g. add `-shell-escape`, or use `-lualatex` or `-xelatex` (needs `collection-xetex`) instead of `-pdf`. |
+| `texlive_packages`     | see below                                         | TeX Live packages, collections, or schemes to be installed. |
+| `texlive_package_file` | none                                              | File in your repository listing further TeX Live packages. |
+| `texlive_version`      | latest                                            | TeX Live version (year). |
 
 The inputs `tex_command`, `bib_command`, `do_bib`, and `auxiliary_folder` are deprecated and
 ignored.
 
-## Troubleshooting
+## TeX Live installation
 
-The PDF is built with the full TeX Live image of
-[dante-ev/latex-action](https://github.com/dante-ev/latex-action). This image is larger than the
-free disk space of GitHub's default runners, which results in errors like
-`failed to register layer: ... no space left on device`. Therefore, the action first deletes
-unused preinstalled software (Android SDK, .NET, GHC, ...) from the runner. Do not set
-`free_disk_space: false` unless you use a self-hosted runner with enough disk space.
+Instead of a full TeX Live (several GB), the action installs a selection of TeX Live packages with
+[zauguin/install-texlive](https://github.com/zauguin/install-texlive) and caches it. The first run
+(and the first run after changing the package list) takes some minutes, later runs restore the
+installation from the cache within seconds. By default, the following packages are installed:
+
+```
+scheme-basic latexmk
+collection-latexrecommended collection-latexextra
+collection-fontsrecommended collection-mathscience collection-pictures
+collection-bibtexextra biber
+```
+
+If your document needs further packages, list them in a file, e.g. `.github/tl_packages`,
+
+```
+# Packages needed in addition to the default ones.
+collection-publishers  # journal classes
+```
+
+and pass `texlive_package_file: .github/tl_packages` to the action. If a package is missing, the
+build fails, and the action names the TeX Live package that provides the missing file.
