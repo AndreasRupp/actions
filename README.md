@@ -27,18 +27,16 @@ on: push
 jobs:
   make_and_deploy_pdf:
     name: Make and deploy pdf
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout current branch
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         submodules: recursive
     - name: Run build and deploy action
       uses: AndreasRupp/actions@tex-to-pdf
       with:
         deploy_pdf: ${{ github.ref == 'refs/heads/main' }}
-        tex_command: "pdflatex"
-        bib_command: "bibtex"
         ci_repo_token: ${{ secrets.CI_REPO_TOKEN }}
         ci_user_name: dummy_acc
         ci_user_mail: dummy_acc_mail
@@ -47,9 +45,31 @@ jobs:
         tex_file: main
 ```
 
-where `your_user_name` is the user/organization which owns the `auto_pages`, `pdflatex` is the
-command which builds the PDF if you are in the main directory of the rspository, and the 
-`tex_file` is the name of your main .tex file (without the .tex extension).
+where `your_user_name` is the user/organization which owns the `auto_pages` and `tex_file` is the
+name of your main .tex file (without the .tex extension).
 
 The script will then try to build the PDF on all pushes and check, whether this can be done, but
 it will only be published if there is a successful push or merged pull-request to branch `main`.
+Each project's PDF is stored as `<tex_file>.pdf` in `auto_pages`, so several projects can share
+one pages repository (as long as their `tex_file` names differ).
+
+## Optional inputs
+
+| Input               | Default                                                                 | Meaning |
+|---------------------|-------------------------------------------------------------------------|---------|
+| `working_directory` | repository root                                                         | Directory in which the compiler is run (and the PDF is expected). |
+| `compiler`          | `latexmk`                                                               | LaTeX compiler. `latexmk` runs bibtex/biber and repeats LaTeX runs automatically. |
+| `compiler_args`     | `-pdf -latexoption=-file-line-error -latexoption=-interaction=nonstopmode` | Arguments of the compiler, e.g. use `-lualatex` instead of `-pdf` or add `-shell-escape`. |
+| `free_disk_space`   | `true`                                                                  | Remove unused preinstalled software from GitHub-hosted runners before building. |
+
+The inputs `tex_command`, `bib_command`, `do_bib`, and `auxiliary_folder` are deprecated and
+ignored.
+
+## Troubleshooting
+
+The PDF is built with the full TeX Live image of
+[dante-ev/latex-action](https://github.com/dante-ev/latex-action). This image is larger than the
+free disk space of GitHub's default runners, which results in errors like
+`failed to register layer: ... no space left on device`. Therefore, the action first deletes
+unused preinstalled software (Android SDK, .NET, GHC, ...) from the runner. Do not set
+`free_disk_space: false` unless you use a self-hosted runner with enough disk space.

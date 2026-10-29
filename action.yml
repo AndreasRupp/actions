@@ -1,109 +1,113 @@
 ####################################################################################################
-# GitHub action that builds and eventually deploys a doxygen.
+# GitHub action that builds a PDF from LaTeX sources and eventually deploys it to a repository
+# serving GitHub pages.
 #
-# Note that the inputs that are marked as not required are only required if the doxygen pages will
-# really be deployed. They are obsolete if you only want to check, whether doxygen works.
+# Note that the inputs that are marked as not required are only required if the PDF will really be
+# deployed. They are obsolete if you only want to check, whether the PDF can be built.
 #
 # Author: Andreas Rupp, Heidelberg University, 2021.
 ####################################################################################################
 
 name: Turn tex code into pdf
-description: "Run latex command and publish result afterwards."
+description: "Compile LaTeX sources into a PDF and publish the result afterwards."
+branding:
+  icon: book
+  color: blue
 
 inputs:
   deploy_pdf:
     description: |
-      "'True' indicates that the pdf is build AND deployed.
-      PDF is build, but not deployed to the remote repository if set to 'false'."
+      'true' indicates that the PDF is built AND deployed. The PDF is built, but not deployed to
+      the remote repository if set to 'false'.
     required: true
-    default: true
-  do_bib:
+    default: 'true'
+  tex_file:
+    description: "Name of the main tex file (omit the .tex extension)."
     required: true
-    default: true
-  tex_command:
-    description: "Shell command to generate pdf from tex files (if you are in the repository)."
-    required: true
-    default: "pdflatex"
-  bib_command:
-    description: "Shell command to generate bibliography from aux files."
-    required: true
-    default: "bibtex"
+  working_directory:
+    description: "Directory (relative to the repository root) in which the compiler is invoked."
+    required: false
+    default: ''
+  compiler:
+    description: |
+      LaTeX compiler to be invoked. The default latexmk runs bibtex/biber and repeats the LaTeX
+      runs as often as needed.
+    required: false
+    default: latexmk
+  compiler_args:
+    description: "Arguments passed to the compiler."
+    required: false
+    default: -pdf -latexoption=-file-line-error -latexoption=-interaction=nonstopmode
+  free_disk_space:
+    description: |
+      'true' removes unused preinstalled software (Android SDK, .NET, GHC, ...) from GitHub-hosted
+      runners before the TeX Live image is built. The full TeX Live image does not fit into the
+      default free disk space otherwise. Has no effect on self-hosted runners.
+    required: false
+    default: 'true'
   ci_repo_token:
     description: |
-      "Contains a token that should be stored as a secret within the repository of which the doxygen
-      will be created. This token is also set as personal access token of the ci_user. The ci_user
-      is recommended to be a dummy account with write access to the repository that will contain the
-      doygen pages only. Thus, the personal access token should grant access to the repository that
-      will contain the doxygen pages. This is not needed if 'deploy_pdf' is set to false."
+      Personal access token of the ci_user. It should be stored as a secret within the repository
+      of which the PDF will be created. The ci_user is recommended to be a dummy account with write
+      access to the repository that contains the PDFs, only. Not needed if 'deploy_pdf' is 'false'.
     required: false
-    default: Debug
   ci_user_name:
-    description: |
-      "Name of the ci_user, which is recommended to be a dummy account with write access to the
-      repository that will contain the doxygen pages, only."
+    description: "Name of the ci_user."
     required: false
   ci_user_mail:
-    description: "Mail of the CI user."
+    description: "Mail of the ci_user."
     required: false
   pages_repo_organization:
-    description: "Organization that owns the repository that will contain the doxygen."
+    description: "User or organization that owns the repository that will contain the PDF."
     required: false
   pages_repo_name:
-    description: "Name of the repository containing the doxgen pages (and nothing else)."
+    description: "Name of the repository that will contain the PDF (and nothing else)."
     required: false
-  tex_file:
-    description: |
-      "Name of the main tex file. (Omit .tex extension.)"
+  do_bib:
+    description: "Deprecated and ignored: latexmk runs bibtex/biber automatically."
     required: false
+    deprecationMessage: "'do_bib' is ignored: latexmk runs bibtex/biber automatically."
+  tex_command:
+    description: "Deprecated and ignored: use 'compiler' and 'compiler_args' instead."
+    required: false
+    deprecationMessage: "'tex_command' is ignored: use 'compiler' and 'compiler_args' instead."
+  bib_command:
+    description: "Deprecated and ignored: latexmk runs bibtex/biber automatically."
+    required: false
+    deprecationMessage: "'bib_command' is ignored: latexmk runs bibtex/biber automatically."
   auxiliary_folder:
-    description: |
-      "Name of a not existing folder in your repositories. The folder will be generated and
-      manipulated by this script."
-    required: true
-    default: pdf_docs_ci
+    description: "Deprecated and ignored: the deploy script works in a temporary directory."
+    required: false
+    deprecationMessage: "'auxiliary_folder' is ignored: a temporary directory is used instead."
 
 runs:
   using: composite
   steps:
-  - name: pdflatex number 1
-    uses: dante-ev/latex-action@latest
+  - name: Free disk space
+    if: inputs.free_disk_space == 'true' && runner.environment == 'github-hosted'
+    shell: bash
+    run: |
+      df -h /
+      sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+        /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+      sudo docker image prune --all --force > /dev/null
+      df -h /
+  - name: Compile LaTeX
+    uses: dante-ev/latex-action@2026-C
     with:
-      root_file: ${{inputs.tex_file}}.tex
-  #     compiler: ${{inputs.tex_command}}
-  #     args: -interaction=nonstopmode -shell-escape
-  # - name: bibtex
-  #   if: ${{inputs.do_bib == 'true'}}
-  #   uses: dante-ev/latex-action@latest
-  #   with:
-  #     root_file: ${{inputs.tex_file}}.aux
-  #     compiler: ${{inputs.bib_command}}
-  # - name: pdflatex number 2
-  #   uses: dante-ev/latex-action@latest
-  #   with:
-  #     root_file: ${{inputs.tex_file}}.tex
-  #     compiler: ${{inputs.tex_command}}
-  #     args: -interaction=nonstopmode -shell-escape
-  # - name: pdflatex number 3
-  #   if: ${{inputs.do_bib == 'true'}}
-  #   uses: dante-ev/latex-action@latest
-  #   with:
-  #     root_file: ${{inputs.tex_file}}.tex
-  #     compiler: ${{inputs.tex_command}}
-  #     args: -interaction=nonstopmode -shell-escape
-  - name: Run Deploy Script
+      root_file: ${{ inputs.tex_file }}.tex
+      working_directory: ${{ inputs.working_directory }}
+      compiler: ${{ inputs.compiler }}
+      args: ${{ inputs.compiler_args }}
+  - name: Deploy PDF
+    if: inputs.deploy_pdf == 'true'
     shell: bash
     env:
-      REPO_TOKEN: ${{inputs.ci_repo_token}}
-      GH_REPO_ORG: ${{inputs.pages_repo_organization}}
-      GH_REPO_NAME: ${{inputs.pages_repo_name}}
-      GH_USER_NAME: ${{inputs.ci_user_name}}
-      GH_USER_MAIL: ${{inputs.ci_user_mail}}
-      PDF_FILE: ${{inputs.tex_file}}.pdf
-      GH_AUX_REP: ${{inputs.auxiliary_folder}}
-    run: |
-      if [ ${{inputs.deploy_pdf}} = 'true' ]; then
-        git clone -b tex-to-pdf https://github.com/AndreasRupp/actions.git \
-          ${{inputs.auxiliary_folder}}
-        chmod 700 ${{inputs.auxiliary_folder}}/deploy_pdf.sh
-        ${{inputs.auxiliary_folder}}/deploy_pdf.sh
-      fi
+      REPO_TOKEN: ${{ inputs.ci_repo_token }}
+      GH_REPO_ORG: ${{ inputs.pages_repo_organization }}
+      GH_REPO_NAME: ${{ inputs.pages_repo_name }}
+      GH_USER_NAME: ${{ inputs.ci_user_name }}
+      GH_USER_MAIL: ${{ inputs.ci_user_mail }}
+      PDF_FILE: ${{ inputs.tex_file }}.pdf
+      SOURCE_DIR: ${{ github.workspace }}/${{ inputs.working_directory }}
+    run: bash "$GITHUB_ACTION_PATH/deploy_pdf.sh"
